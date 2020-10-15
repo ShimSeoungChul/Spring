@@ -157,9 +157,120 @@ public class TVUser {
 
 - `name` 속성은 id와 같은 기능을 하지만, id와 다르게 `자바 식별자 작성 규칙을 따르지 않는 문자열도 허용`한다. <br />
 따라서 `특수기호`가 포함된 아이디를 <bean> 아이디로 지정할 때 id 대신 name 속성을 쓴다.  <br />
-name 역시 전체 스프링 파일 내에서 유일해야 한다.
+name 역시 전체 스프링 파일 내에서 `유일`해야 한다.
 
-- 
+### 3.2.4 <bean> 엘리먼트 속성
+#### (1) init-method 속성
+- `Servlet 컨테이너`는 web.xml 파일에 등록된 Servlet 클래스의 객체를 생성할 때 `디폴트 생성자만 인식`한다. <br />
+따라서 생성자로 Servlet 객체의 멤버변수를 초기화할 수 없다.<br />
+그래서 서블릿은 `init()메소드를 재정의(Overriding)`하여 멤버변수를 초기화한다. <br />
+
+- `스프링 컨테이너` 역시 스프링 설정 파일에 등록된 클래스를 객체 생성할 때 `디폴트 생성자`를 호출하기 때문에 <br />
+객체를 생성한 후 멤버변수 초기화 작업을 위해 <bean> 엘리먼트에 `init-method 속성`을 지원한다. <br />
+init-method 속성으로 지정된 메소드는 컨테이너가 구동되어 객체를 생성한 직후에 호출된다.
+
+#### (2) destroy-method 속성
+- init-method와 마찬가지로 <bean> 엘리먼트에서 destroy-method 속성을 이용하여 <br />
+스프링 컨테이너가 `객체를 삭제하기 직전에 호출될 임의의 메소드`를 지정할 수 있다.
+
+```
+<bean id="tv" class="ch3_1_2.SamsungTV" init-method="initMethod" destroy-method="destroyMethod"/>
+```
+
+SamsungTV.java
+---
+```
+public class SamsungTV implements TV{
+public void initMethod() {
+    System.out.println("객체 초기화 작업 처리..");
+}
+public void destroyMethod() {
+    System.out.println("객체 삭제 전에 처리할 로직 처..");
+}
+~생략~
+}
+```
+
+실행결과
+---
+```
+INFO : org.springframework.beans.factory.xml.XmlBeanDefinitionReader - Loading XML bean definitions from class path resource [applicationContext.xml]
+INFO : org.springframework.context.support.GenericXmlApplicationContext - Refreshing org.springframework.context.support.GenericXmlApplicationContext@51b7e5df: startup date [Thu Oct 15 11:42:44 KST 2020]; root of context hierarchy
+INFO : org.springframework.beans.factory.support.DefaultListableBeanFactory - Pre-instantiating singletons in org.springframework.beans.factory.support.DefaultListableBeanFactory@36b4fe2a: defining beans [tv]; root of factory hierarchy
+객체 초기화 작업 처리..
+SumsungTV--- 전원 켠다.
+SumsungTV--- 전원 켠다.
+SumsungTV--- 소리 올린다.
+SumsungTV--- 소리 내린다.
+SumsungTV--- 전원 끊다.
+INFO : org.springframework.context.support.GenericXmlApplicationContext - Closing org.springframework.context.support.GenericXmlApplicationContext@51b7e5df: startup date [Thu Oct 15 11:42:44 KST 2020]; root of context hierarchy
+INFO : org.springframework.beans.factory.support.DefaultListableBeanFactory - Destroying singletons in org.springframework.beans.factory.support.DefaultListableBeanFactory@36b4fe2a: defining beans [tv]; root of factory hierarchy
+객체 삭제 전에 처리할 로직 처..
+
+```
+
+#### (3) lazy-init 속성
+- `ApplicationContext`를 이용하여 컨테이너를 구동하면 `즉시 로딩(pre-loading)` 방식으로 동작한다. <br />
+하지만 `자주 사용되지 않으면서` `메모리를 많이 차지`하여 시스템에 부담을 주는 <bean>도 있다.
+스프링에서는 컨테이너가 구동되는 시점이 아닌 해당 `<bean>`이 `사용되는 시점`에 객체를 생성하도록 `init-lazy 속성`을 제공한다.
+- 특정 <bean>은 등록할 때  lazy-init="true"로 설정하면 스프링 컨테이너는 클라이언트가 요청하는 시점에 <bean>을 생성한다.
+
+#### (4) scope 속성
+- 여러 개의 객체가 아닌 `단 하나의 객체`만 생성해야 하는 경우 GOF 디자인 패턴 중 `싱글톤 패턴`을 사용하면 된다. <br />
+- 이는 클래스로부터 `객체를 생성하는 쪽에서 자동으로 싱글톤 객체로 생성`해주는 것이 가장 바람직하며, `스프링 컨테이너`는 해당 기능을 제공한다. <br />
+- 스프링 컨테이너는 `scope 속성`을 사용하여 생성한 bean을 어느 범위에서 사용할 수 있는지를 지정할 수 있고, <br />
+scope 속성값은 `기본이 싱글톤`이다. 때문에 아래 처럼 설정하고나, 아예 생략하고 사용할 수도 있다.<br />
+
+<bean id="tv" class="ch3_2_4.SamsungTV" scope="singleton"/>
+
+- 아래 코드를 실행해보면 클라이언트가 SamsungTV 객체를 여러 번 요청해도 객체는 메모리에 하나만 생성되어 유지되는 걸 볼 수 있다.
+
+TVUser.java
+---
+```
+public class TVUser {
+    public static void main(String[] args) {
+        //1. Spring 컨테이너를 구동한다.
+        AbstractApplicationContext factory = new GenericXmlApplicationContext("applicationContext.xml");
+        
+        //2. Spring 컨테이너로부터 필요한 객체를 요청(Lookup)한다.
+        TV tv1 = (TV)factory.getBean("tv");
+        TV tv2 = (TV)factory.getBean("tv");
+        TV tv3 = (TV)factory.getBean("tv");
+        
+        //3.Spring 컨테이너를 종료한다.
+        factory.close();
+    }
+}
+```
+
+실행결과
+---
+```
+INFO : org.springframework.beans.factory.xml.XmlBeanDefinitionReader - Loading XML bean definitions from class path resource [applicationContext.xml]
+INFO : org.springframework.context.support.GenericXmlApplicationContext - Refreshing org.springframework.context.support.GenericXmlApplicationContext@51b7e5df: startup date [Thu Oct 15 12:11:21 KST 2020]; root of context hierarchy
+INFO : org.springframework.beans.factory.support.DefaultListableBeanFactory - Pre-instantiating singletons in org.springframework.beans.factory.support.DefaultListableBeanFactory@36b4fe2a: defining beans [tv]; root of factory hierarchy
+===> SamsiungTV 객체 생성
+INFO : org.springframework.context.support.GenericXmlApplicationContext - Closing org.springframework.context.support.GenericXmlApplicationContext@51b7e5df: startup date [Thu Oct 15 12:11:21 KST 2020]; root of context hierarchy
+INFO : org.springframework.beans.factory.support.DefaultListableBeanFactory - Destroying singletons in org.springframework.beans.factory.support.DefaultListableBeanFactory@36b4fe2a: defining beans [tv]; root of factory hierarchy
+
+```
+
+- <bean>의 scope 속성은 "prototype"으로 지정하면 해당 <bean>을 요청할 때마다 새로운 객체를 생성하여 반환한다.  <br />
+
+<bean id="tv" class="ch3_2_4.SamsungTV" scope="prototype"/>
 
 
-### 3.2.4 <beans> 엘리먼트 속성
+실행결과
+---
+```
+INFO : org.springframework.beans.factory.xml.XmlBeanDefinitionReader - Loading XML bean definitions from class path resource [applicationContext.xml]
+INFO : org.springframework.context.support.GenericXmlApplicationContext - Refreshing org.springframework.context.support.GenericXmlApplicationContext@51b7e5df: startup date [Thu Oct 15 12:16:31 KST 2020]; root of context hierarchy
+INFO : org.springframework.beans.factory.support.DefaultListableBeanFactory - Pre-instantiating singletons in org.springframework.beans.factory.support.DefaultListableBeanFactory@36b4fe2a: defining beans [tv]; root of factory hierarchy
+===> SamsiungTV 객체 생성
+===> SamsiungTV 객체 생성
+===> SamsiungTV 객체 생성
+INFO : org.springframework.context.support.GenericXmlApplicationContext - Closing org.springframework.context.support.GenericXmlApplicationContext@51b7e5df: startup date [Thu Oct 15 12:16:31 KST 2020]; root of context hierarchy
+INFO : org.springframework.beans.factory.support.DefaultListableBeanFactory - Destroying singletons in org.springframework.beans.factory.support.DefaultListableBeanFactory@36b4fe2a: defining beans [tv]; root of factory hierarchy
+```
+
