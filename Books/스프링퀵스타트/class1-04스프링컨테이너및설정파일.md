@@ -409,7 +409,7 @@ public class SamsungTV implements TV{
     xmlns:p="http://www.springframework.org/schema/p"  >
 
     <bean id="tv" class="ch4_3_1.SamsungTV" p:speaker-ref="sony" p:price="2700000"/>
-    
+
     <bean id="sony" class="ch4_3_1.SonySpeaker"></bean>
     <bean id="apple" class="ch4_3_1.AppleSpeaker"></bean>
 </beans>
